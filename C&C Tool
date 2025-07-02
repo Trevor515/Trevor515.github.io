@@ -1,0 +1,152 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>C&C Job Quoting Tool</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
+    h2 { text-align: center; }
+    input, textarea, select, button {
+      width: 100%; padding: 10px; margin-top: 10px; box-sizing: border-box; font-size: 16px;
+    }
+    button { background: #007BFF; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .quote-list { margin-top: 20px; }
+    .quote-item { background: #fff; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+    .quote-item button { margin-top: 5px; width: auto; font-size: 14px; padding: 5px 10px; }
+  </style>
+</head>
+<body>
+  <h2>C&C Property Maintenance</h2>
+
+  <input type="text" id="customerName" placeholder="Customer Name">
+  <textarea id="jobDescription" placeholder="Job Description / Notes"></textarea>
+
+  <select id="jobType">
+    <option value="hourly">Hourly</option>
+    <option value="flat">Flat Rate</option>
+  </select>
+
+  <div id="hourlySection">
+    <input type="number" id="hours" placeholder="Hours">
+    <input type="number" id="hourlyRate" placeholder="Hourly Rate ($)">
+  </div>
+
+  <div id="flatRateSection" style="display:none;">
+    <input type="number" id="flatRate" placeholder="Flat Rate ($)">
+  </div>
+
+  <input type="number" id="equipmentFees" placeholder="Equipment Fees ($)">
+  <input type="number" id="travelCharges" placeholder="Travel Charges ($)">
+  <input type="number" id="materialCost" placeholder="Material Cost ($)">
+  <input type="number" id="markup" placeholder="Material Markup (%)">
+
+  <button onclick="saveQuote()">Save Quote</button>
+  <button onclick="viewQuotes()">View Saved Quotes</button>
+
+  <div class="quote-list" id="quoteList"></div>
+
+  <script>
+    const jobType = document.getElementById('jobType');
+    const hourlySection = document.getElementById('hourlySection');
+    const flatRateSection = document.getElementById('flatRateSection');
+
+    jobType.addEventListener('change', () => {
+      if (jobType.value === 'flat') {
+        hourlySection.style.display = 'none';
+        flatRateSection.style.display = 'block';
+      } else {
+        hourlySection.style.display = 'block';
+        flatRateSection.style.display = 'none';
+      }
+    });
+
+    function generateQuoteID() {
+      const now = new Date();
+      return 'Q-' + now.toISOString().split('T')[0].replace(/-/g, '') + '-' + Math.floor(Math.random() * 1000);
+    }
+
+    function saveQuote() {
+      const customer = document.getElementById('customerName').value.trim() || 'No Name';
+      const description = document.getElementById('jobDescription').value.trim() || '';
+      const type = document.getElementById('jobType').value;
+      const hours = parseFloat(document.getElementById('hours').value) || 0;
+      const hourlyRate = parseFloat(document.getElementById('hourlyRate').value) || 0;
+      const flatRate = parseFloat(document.getElementById('flatRate').value) || 0;
+      const equipment = parseFloat(document.getElementById('equipmentFees').value) || 0;
+      const travel = parseFloat(document.getElementById('travelCharges').value) || 0;
+      const material = parseFloat(document.getElementById('materialCost').value) || 0;
+      const markup = parseFloat(document.getElementById('markup').value) || 0;
+
+      const base = type === 'hourly' ? hours * hourlyRate : flatRate;
+      const materialMarkup = material * (markup / 100);
+      const total = base + equipment + travel + material + materialMarkup;
+
+      const quote = {
+        id: generateQuoteID(),
+        date: new Date().toLocaleString(),
+        customer, description,
+        total: total.toFixed(2),
+        breakdown: { base, equipment, travel, material, markup: materialMarkup.toFixed(2) }
+      };
+
+      const quotes = JSON.parse(localStorage.getItem('quotes') || '[]');
+      quotes.push(quote);
+      localStorage.setItem('quotes', JSON.stringify(quotes));
+
+      alert('Quote Saved! Total: $' + quote.total);
+      viewQuotes();
+    }
+
+    function viewQuotes() {
+      const quotes = JSON.parse(localStorage.getItem('quotes') || '[]');
+      const container = document.getElementById('quoteList');
+      container.innerHTML = '';
+
+      if (quotes.length === 0) {
+        container.innerHTML = '<p>No saved quotes.</p>';
+        return;
+      }
+
+      quotes.forEach(q => {
+        const div = document.createElement('div');
+        div.className = 'quote-item';
+        div.innerHTML = `
+          <strong>${q.date}</strong><br>
+          ID: ${q.id}<br>
+          ${q.customer}<br>
+          $${q.total}<br>
+          ${q.description}<br>
+          <button onclick="copyQuote('${q.id}')">Copy</button>
+          <button onclick="deleteQuote('${q.id}')">Delete</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function copyQuote(id) {
+      const quotes = JSON.parse(localStorage.getItem('quotes') || '[]');
+      const quote = quotes.find(q => q.id === id);
+      if (quote) {
+        const text = `
+Quote ID: ${quote.id}
+Date: ${quote.date}
+Customer: ${quote.customer}
+Description: ${quote.description}
+Total: $${quote.total}
+        `.trim();
+        navigator.clipboard.writeText(text).then(() => alert('Quote copied!'));
+      }
+    }
+
+    function deleteQuote(id) {
+      let quotes = JSON.parse(localStorage.getItem('quotes') || '[]');
+      quotes = quotes.filter(q => q.id !== id);
+      localStorage.setItem('quotes', JSON.stringify(quotes));
+      viewQuotes();
+    }
+  </script>
+</body>
+</html>
